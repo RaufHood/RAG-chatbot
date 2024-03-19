@@ -1,0 +1,13 @@
+weaviate-client==3.26.2
+fastapi==0.110.0
+uvicorn==0.28.1
+langchain==0.1.12
+langchain-community==0.0.28
+langchain-core==0.1.31
+langchain-openai==0.0.8
+langchain-text-splitters==0.0.1
+langsmith==0.1.24
+environs==11.0.0
+python-dotenv==1.0.1
+openai==1.13.3
+bs4==0.0.2

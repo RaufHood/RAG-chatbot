@@ -1,0 +1,35 @@
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+    color: #ddd;
+}
+
+#recordButton {
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#recordButton:active {
+    background-color: #3e8e41;
+}
+
+#transcription {
+    margin-top: 20px;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+.hero{
+    width: 100%;
+    min-height: 100vh;
+    background: linear-gradient(45deg, #010758, #490d61);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}

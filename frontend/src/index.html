@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice to Text App</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <div class="hero">
+
+        <input id="usernameInput" type = "text" placeholder = "Enter ID">
+        <button onclick="returnText()" >Submit</button> 
+
+        <button id="recordButton">Start Recording</button>
+        <p id="transcription">Transcription will appear here...</p>
+
+        <button id="sendButton"onclick="sendTextToServer()">Send to Python</button>
+
+        <p id="response_GPT">Answer will appear here...</p>
+        <button id="PlayButton">Play</button>
+        
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="client.js"></script>   
+
+</body>
+</html>
