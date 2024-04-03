@@ -1,33 +1,51 @@
-
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Poppins', sans-serif; /* A more modern font */
     text-align: center;
     padding: 20px;
-    color: #ddd;
+    color: #FFFFFF;
+    background: #f0f2f5; /* A light background to contrast with the hero section */
 }
 
-#recordButton {
+input[type=text], button {
+    font-family: 'Poppins', sans-serif;
     padding: 10px;
-    background-color: #4CAF50;
-    color: white;
+    margin: 5px;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
+    transition: all 0.3s ease; /* Smooth transition for hover effects */
+}
+
+input[type=text] {
+    width: 250px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+button {
+    background-color: #6c63ff; /* A pleasant purple shade */
+    color: white;
     cursor: pointer;
 }
 
-#recordButton:active {
-    background-color: #3e8e41;
+button:hover {
+    background-color: #5753c9; /* Darker shade on hover */
+    box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.2); /* Adding depth on hover */
 }
 
-#transcription {
+#transcription, #response_GPT {
     margin-top: 20px;
-    border: 1px solid #ddd;
-    padding: 10px;
+    background-color: #ffffff;
+    color: #333333;
+    border-radius: 8px;
+    padding: 20px;
+    width: 80%;
+    max-width: 500px; /* Ensuring it's not too wide on larger screens */
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
 }
-.hero{
+
+.hero {
     width: 100%;
     min-height: 100vh;
-    background: linear-gradient(45deg, #010758, #490d61);
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); /* A more vibrant gradient */
     display: flex;
     align-items: center;
     justify-content: center;
