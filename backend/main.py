@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from chatbot.chatbot import process_input
+from .chatbot.chatbot import upload_text_sources, ask_question
 
 app = FastAPI()
 
@@ -23,7 +23,7 @@ def read_root():
 @app.post("/process-text/")
 def process_question(item: Question):
     try:
-        answer = process_input(item.question)
+        answer = ask_question(item.question)
         return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

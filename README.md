@@ -53,6 +53,10 @@ pip install -r requirements.txt
 ```
 uvicorn main:app --reload
 ```
+or in case it doesn't work  
+```
+uvicorn backend.main:app --reload
+```
 
 This command will start the FastAPI application on `http://127.0.0.1:8000`.
 
