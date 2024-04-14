@@ -20,6 +20,8 @@ retriever = None
 
 WEAVIATE_API_KEY = os.environ["WEAVIATE_API_KEY"]
 WEAVIATE_URL =  os.getenv("WEAVIATE_URL", 'default-url-if-not-set')
+print("Weaviate URL:", WEAVIATE_URL)
+
 
 client = weaviate.Client(
     url=WEAVIATE_URL,
@@ -28,6 +30,13 @@ client = weaviate.Client(
         "X-Openai-Api-Key": os.getenv("OPENAI_API_KEY"),
     },
 )
+
+try:
+    print("Checking Weaviate connection...")
+    client.is_ready()  # or client.get_meta() to fetch metadata
+    print("Connection established.")
+except Exception as e:
+    print("Failed to establish connection:", e)
 
 def upload_text_sources(file_path):
     '''
@@ -62,12 +71,23 @@ def upload_text_sources(file_path):
 
     return docsearch.as_retriever()
 
+def get_retriever():
+    global retriever
+    if retriever is None:
+        file_path = os.path.join(script_dir, "paca.html")
+        retriever = upload_text_sources(file_path)
+    return retriever
+
 def ask_question(question):
     retriever = get_retriever()
 
     if retriever is None:
         raise Exception("Retriever is not initialized properly.")
     
+    # Attempt to retrieve context based on the question
+    context = retriever.retrieve(question)  # Assuming `retrieve` is your method to fetch data
+    print("Retrieved context:", context)  # Log the retrieved context
+
     template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
     Question: {question} 
     Context: {context} 
@@ -89,12 +109,6 @@ def ask_question(question):
     answer = rag_chain.invoke(question)
     return answer
 
-def get_retriever():
-    global retriever
-    if retriever is None:
-        file_path = os.path.join(script_dir, "paca.html")
-        retriever = upload_text_sources(file_path)
-    return retriever
 
 if __name__ == "__main__":
     retriever = get_retriever()
