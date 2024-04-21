@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from chatbot.chatbot import process_input
+from typing import Optional
 
 app = FastAPI()
 
@@ -15,6 +16,7 @@ app.add_middleware(
 
 class Question(BaseModel):
     question: str
+    session_id: Optional[str]
 
 @app.get("/")
 def read_root():
@@ -27,3 +29,4 @@ def process_question(item: Question):
         return {"answer": answer}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
