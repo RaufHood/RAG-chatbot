@@ -8,6 +8,10 @@ from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain.docstore.document import Document
+#from langchain_community.retrievers import WeaviateSearchRetriever
+from langchain_community.retrievers import (
+    WeaviateHybridSearchRetriever,
+)
 
 import os
 from dotenv import load_dotenv
@@ -72,10 +76,17 @@ def upload_text_sources(file_path):
     return docsearch.as_retriever()
 
 def get_retriever():
-    global retriever
-    if retriever is None:
-        file_path = os.path.join(script_dir, "paca.html")
-        retriever = upload_text_sources(file_path)
+    #global retriever
+    #if retriever is None:
+    #    file_path = os.path.join(script_dir, "paca.html")
+    #    retriever = upload_text_sources(file_path)
+    retriever = WeaviateHybridSearchRetriever(
+        client=client,
+        index_name="LangChain",
+        text_key="text",
+        attributes=[],
+        create_schema_if_missing=True,
+    )
     return retriever
 
 def ask_question(question):
@@ -85,7 +96,7 @@ def ask_question(question):
         raise Exception("Retriever is not initialized properly.")
     
     # Attempt to retrieve context based on the question
-    context = retriever.retrieve(question)  # Assuming `retrieve` is your method to fetch data
+    context = retriever.get_relevant_documents(question)  
     print("Retrieved context:", context)  # Log the retrieved context
 
     template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
@@ -108,7 +119,6 @@ def ask_question(question):
 
     answer = rag_chain.invoke(question)
     return answer
-
 
 if __name__ == "__main__":
     retriever = get_retriever()
