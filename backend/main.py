@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
@@ -6,6 +6,7 @@ from .chatbot.chatbot import upload_text_sources, ask_question
 from dotenv import load_dotenv
 import os
 from typing import Optional
+from .database import *
 load_dotenv()
 
 app = FastAPI()
@@ -20,7 +21,7 @@ app.add_middleware(
 
 class Question(BaseModel):
     question: str
-
+    session_id: Optional[str]
 
 @asynccontextmanager
 async def app_lifespan(app):
@@ -46,11 +47,24 @@ app.router.lifespan_context = app_lifespan
 def read_root():
     return {"Chatbot_API": "True"}
 
+  
 @app.post("/process-text/")
-def process_question(item: Question):
+def process_question(item: Question, db: sqlite3.Connection = Depends(get_db_connection)):
+    print("process_question called")  # Debug print
+    # If no session_id is provided, generate a new one
     try:
-        answer = ask_question(item.question)
-        return {"answer": answer}
+        if not item.session_id:
+            item.session_id = generate_session_id()
+    
+        # Retrieve the conversation context based on session_id
+        context = get_conversation_context(db, item.session_id)
+        print("Retrieved context:", context)  # Debug print to verify context retrieval
+        # Process the input here; ensure your `process_input` can handle `context`
+    
+        answer = ask_question(item.question, item.session_id, db)
+        store_conversation(db, item.session_id, item.question, answer)
+        return {"session_id": item.session_id, "answer": answer}
     except Exception as e:
+        print("Error in process_question:", str(e))  # Print any exceptions
         raise HTTPException(status_code=500, detail=str(e))
 

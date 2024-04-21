@@ -73,13 +73,15 @@ function stopRecording() {
 
 function sendTextToServer() {
     const transcriptionText = transcription.textContent;
+    let sessionId = sessionStorage.getItem('session_id');  // Retrieve session_id from storage
+
     console.log("Transcription text being sent:", transcriptionText);
     
     // Corrected from inputText to transcriptionText based on your context
     fetch('http://127.0.0.1:8000/process-text/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: transcriptionText })
+        body: JSON.stringify({ question: transcriptionText, session_id: sessionId })
     })
     .then(response => response.json())
     .then(data => {

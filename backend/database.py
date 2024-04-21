@@ -41,7 +41,3 @@ def get_conversation_context(conn: Connection, session_id: str):
 # Generate a new session id
 def generate_session_id() -> str:
     return str(uuid.uuid4())
-
-# Call the create_tables function to initialize the database tables
-# It's better to call this once externally or check for table existence before calling it
-# create_tables(get_db_connection())

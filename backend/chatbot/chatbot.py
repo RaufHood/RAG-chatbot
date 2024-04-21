@@ -12,7 +12,7 @@ from langchain.docstore.document import Document
 from langchain_community.retrievers import (
     WeaviateHybridSearchRetriever,
 )
-
+from ..database import * 
 import os
 from dotenv import load_dotenv
 from .utils import extract_content_chunks_from_file
@@ -89,35 +89,66 @@ def get_retriever():
     )
     return retriever
 
-def ask_question(question):
+def ask_question(question, session_id, db_connection):
+    print("Type of question:", type(question))
+    print("Type of session_id:", type(session_id))
+    print("Type of db_connection:", type(db_connection))
+
+    # Retrieve the conversation history from the SQLite database
+    context_history_records = get_conversation_context(db_connection, session_id)
+    print("Type of context_history_records:", type(context_history_records))
+
+    
+    # Format the SQLite conversation history into a single string
+    sqlite_context = "\n".join([f"Q: {record['question']}\nA: {record['answer']}" for record in context_history_records])
+
+    # Initialize your Weaviate retriever here
     retriever = get_retriever()
 
     if retriever is None:
         raise Exception("Retriever is not initialized properly.")
     
     # Attempt to retrieve context based on the question
-    context = retriever.get_relevant_documents(question)  
-    print("Retrieved context:", context)  # Log the retrieved context
+    weaviate_context = retriever.get_relevant_documents(question)  
+    print("Retrieved context:", weaviate_context)  # Log the retrieved context
 
-    template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
-    Question: {question} 
-    Context: {context} 
+    combined_context = f"{weaviate_context}\n\nPrevious Conversation:\n{sqlite_context}"
+
+    template = """
+    Here is some information I found that might help answer your question, followed by our previous conversation. Use this information to provide a concise and accurate answer. If you don't know the answer, say that you don't know.
+
+    {combined_context}
+
+    New Question:
+    {new_question}
+    
     Answer:
     """
 
-    prompt = ChatPromptTemplate.from_template(template)
+    # Create the prompt including the combined context and the new question
+    full_prompt = template.format(combined_context=combined_context, new_question=question)
 
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
 
     # retrieval
-    rag_chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+    #rag_chain = (
+    #    {"context": retriever, "question": RunnablePassthrough()}
+    #    | full_prompt
+    #    | llm
+    #    | StrOutputParser()
+    #)
+    #answer = rag_chain.invoke(question)
 
-    answer = rag_chain.invoke(question)
+    # Assuming full_prompt, llm, and StrOutputParser are callable and accept appropriate parameters
+    context_data = {"context": retriever, "question": RunnablePassthrough()}
+    processed_prompt = full_prompt(context_data)  # if full_prompt is a function accepting context_data
+    llm_result = llm(processed_prompt)  # if llm accepts the output from full_prompt
+    answer = StrOutputParser(llm_result)  # if StrOutputParser processes the llm_result
+
+
+
+    store_conversation(db_connection, session_id, question, answer)
+
     return answer
 
 if __name__ == "__main__":
