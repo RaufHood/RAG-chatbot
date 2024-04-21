@@ -46,12 +46,16 @@ pip install -r requirements.txt
 
 4. **Environment Variables**
 
-- Create a `.env` and fill in your values for `OPENAI_API_KEY` and `WEAVIATE_API_KEY`.
+- Create a `.env` and fill in your values for `OPENAI_API_KEY` and `WEAVIATE_API_KEY`, `WEAVIATE_URL` and  `UPLOAD_DATA_ON_STARTUP` = "false" if you don't want to uplload data/ or true if you want to upload data to weaviate.
 
 5. **Run the Application**
 
 ```
 uvicorn main:app --reload
+```
+or in case it doesn't work  
+```
+uvicorn backend.main:app --reload
 ```
 
 This command will start the FastAPI application on `http://127.0.0.1:8000`.
