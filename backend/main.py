@@ -7,17 +7,40 @@ from dotenv import load_dotenv
 import os
 from typing import Optional
 from .database import *
+import uuid
 load_dotenv()
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    #allow_origins=["*"],
+    allow_origins=["http://127.0.0.1:5500"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def startup():
+    print("Running startup routine...")
+    conn = get_db_connection()
+    create_tables(conn)
+    close_db_connection(conn)
+
+def shutdown():
+    # Here you can handle cleanup actions
+    print("Running shutdown routine...")
+
+app.add_event_handler("startup", startup)
+app.add_event_handler("shutdown", shutdown)
+
+@app.get("/test-db-init/")
+def test_db_init():
+    conn = get_db_connection()
+    create_tables(conn)
+    close_db_connection(conn)
+    return {"status": "Database initialized, check logs for details."}
 
 class Question(BaseModel):
     question: str
@@ -49,12 +72,12 @@ def read_root():
 
   
 @app.post("/process-text/")
-def process_question(item: Question, db: sqlite3.Connection = Depends(get_db_connection)):
+def process_question(item: Question, db = Depends(get_db_connection)):
     print("process_question called")  # Debug print
     # If no session_id is provided, generate a new one
     try:
         if not item.session_id:
-            item.session_id = generate_session_id()
+            item.session_id = str(uuid.uuid4()) #generate_session_id()
     
         # Retrieve the conversation context based on session_id
         context = get_conversation_context(db, item.session_id)
