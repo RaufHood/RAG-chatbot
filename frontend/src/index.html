@@ -7,16 +7,16 @@
 <body>
     <div class="hero">
 
-        <input id="usernameInput" type = "text" placeholder = "Enter ID">
-        <button onclick="returnText()" >Submit</button> 
+        <input id="usernameInput" type = "text" placeholder = "ID eingeben">
+        <button onclick="returnText()" >Absenden</button> 
 
-        <button id="recordButton">Start Recording</button>
-        <p id="transcription">Transcription will appear here...</p>
+        <button id="recordButton">Aufnahme starten</button>
+        <p id="transcription">Die Transkription erscheint hier...</p>
 
-        <button id="sendButton"onclick="sendTextToServer()">Send to Python</button>
+        <button id="sendButton"onclick="sendTextToServer()">Generiere eine Antwort</button>
 
-        <p id="response_GPT">Answer will appear here...</p>
-        <button id="PlayButton">Play</button>
+        <p id="response_GPT">Die Antwort erscheint hier...</p>
+        <button id="PlayButton">Abspielen</button>
         
     </div>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>

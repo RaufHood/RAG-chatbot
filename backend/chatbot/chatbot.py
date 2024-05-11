@@ -4,28 +4,24 @@ from langchain_community.retrievers import WeaviateHybridSearchRetriever
 from langchain_openai import OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain.docstore.document import Document
-#from langchain_community.retrievers import WeaviateSearchRetriever
-from langchain_community.retrievers import (
-    WeaviateHybridSearchRetriever,
-)
-
 import os
 from dotenv import load_dotenv
 from .utils import extract_content_chunks_from_file
 
-load_dotenv()
-script_dir = os.path.dirname(__file__)
-# Global variable for the retriever
-retriever = None
+# Load the .env file from the project root directory
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+env_path = os.path.join(project_root, '.env')
+load_dotenv(dotenv_path=env_path)
 
-WEAVIATE_API_KEY = os.environ["WEAVIATE_API_KEY"]
-WEAVIATE_URL =  os.getenv("WEAVIATE_URL", 'default-url-if-not-set')
-print("Weaviate URL:", WEAVIATE_URL)
+# Clear existing environment variables
+os.environ.pop("UPLOAD_DATA_ON_STARTUP", None)
 
+# Retrieve the environment variables
+WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
+WEAVIATE_URL = os.getenv("WEAVIATE_URL", 'default-url-if-not-set')
 
 client = weaviate.Client(
     url=WEAVIATE_URL,
@@ -37,67 +33,105 @@ client = weaviate.Client(
 
 try:
     print("Checking Weaviate connection...")
-    client.is_ready()  # or client.get_meta() to fetch metadata
+    client.is_ready()
     print("Connection established.")
 except Exception as e:
     print("Failed to establish connection:", e)
 
+
+def clear_classes():
+    print("Clearing existing classes...")  # Added logging
+    classes = client.schema.get()["classes"]
+    for cls in classes:
+        print(f"Deleting class: {cls['class']}")  # Added logging
+        client.schema.delete_class(cls["class"])
+    print("Existing classes cleared.")  # Added logging
+
+
+def create_schema():
+    print("Creating new schema...")
+    schema = {
+        "classes": [
+            {
+                "class": "LangChain",
+                "vectorizer": "text2vec-openai",
+                "moduleConfig": {
+                    "text2vec-openai": {
+                        "baseURL": "https://api.openai.com",
+                        "model": "ada",
+                        "vectorizeClassName": True,
+                    },
+                },
+                "properties": [
+                    {
+                        "name": "text",
+                        "dataType": ["text"],
+                        "indexFilterable": True,
+                        "indexSearchable": True,
+                        "moduleConfig": {
+                            "text2vec-openai": {
+                                "skip": False,
+                                "vectorizePropertyName": False,
+                            },
+                        },
+                        "tokenization": "word",
+                    },
+                    {
+                        "name": "source",
+                        "dataType": ["text"],
+                        "indexFilterable": True,
+                        "indexSearchable": True,
+                        "tokenization": "word",
+                    },
+                ],
+            }
+        ]
+    }
+    client.schema.create(schema)
+    print("Schema created successfully.")
+
+
 def upload_text_sources(file_path):
-    '''
-    Process the input text and generate an answer using a question-answering model.
-
-    Args:
-        input_text (str): The input text containing a question.
-
-    Returns:
-        str: The generated answer to the question.
-    '''
-
     embeddings = OpenAIEmbeddings()
-
-    
     texts = extract_content_chunks_from_file(file_path)
 
-    doc = []
-    for text in texts:
-        if isinstance(text.metadata, dict):
-            meta = text.metadata  # Use metadata directly if it's already a dictionary
-        else:
-            meta = {'source': str(text.metadata)}  # Convert to string if necessary
-        doc.append(Document(page_content=text.page_content, metadata=meta))
+    clear_classes()
+    create_schema()
 
-    docsearch = Weaviate.from_documents(
-        documents = doc,
-        embedding = embeddings,
-        client = client,
-        by_text=False,
-    )
+    documents = [
+        {
+            "text": text.page_content,
+            "source": str(text.metadata)
+        }
+        for text in texts
+    ]
 
-    return docsearch.as_retriever()
+    print(f"Uploading {len(documents)} documents")
 
-def get_retriever():
-    #global retriever
-    #if retriever is None:
-    #    file_path = os.path.join(script_dir, "paca.html")
-    #    retriever = upload_text_sources(file_path)
+    with client.batch as batch:
+        for doc in documents:
+            batch.add_data_object(doc, "LangChain")
+
+    print("Documents uploaded successfully.")
+    return documents
+
+def retrieve_documents(question, top_k=5):
     retriever = WeaviateHybridSearchRetriever(
         client=client,
         index_name="LangChain",
         text_key="text",
-        attributes=[],
+        attributes=["text"],
         create_schema_if_missing=True,
     )
-    return retriever
+
+    return retriever.get_relevant_documents(question)
+
 
 def ask_question(question):
-    retriever = get_retriever()
-
-    if retriever is None:
-        raise Exception("Retriever is not initialized properly.")
-    
-    # Attempt to retrieve context based on the question
-    context = retriever.get_relevant_documents(question)  
-    print("Retrieved context:", context)  # Log the retrieved context
+    context_docs = retrieve_documents(question)
+    context = "\n".join([doc.page_content for doc in context_docs])
+    #print(f"context_docs: {context_docs}")
+    #print(f"context: {context}")
 
     template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
     Question: {question} 
@@ -106,22 +140,45 @@ def ask_question(question):
     """
 
     prompt = ChatPromptTemplate.from_template(template)
-
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+    parser = StrOutputParser()
 
-    # retrieval
-    rag_chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+    inputs = {"context": context, "question": question}
+    prompt_output = prompt.invoke(inputs)
+    llm_output = llm.invoke(prompt_output) 
+    answer = parser.invoke(llm_output)
+    
 
-    answer = rag_chain.invoke(question)
+    #    rag_chain = (
+    #        inputs
+    #        | prompt
+    #        | llm
+    #       | StrOutputParser()
+    #    )
+    #    answer = rag_chain.invoke(inputs)
     return answer
 
+
+
+def check_schema():
+    schema = client.schema.get()
+    print("Schema:", schema)
+
+def check_data():
+    result = client.query.get('LangChain', ['text', 'source']).with_limit(10).do()
+    print("DATA:", result)
+
+def check_document_count():
+    count = client.query.aggregate('LangChain').with_meta_count().do()
+    print("COUNT:", count)
+
 if __name__ == "__main__":
-    retriever = get_retriever()
+    check_schema()        # Verify the schema
+    check_data()          # Verify data in LangChain class
+    check_document_count()# Check document count
+    # Re-upload documents
+    file_path = "backend/chatbot/paca.html"
+    retriever = upload_text_sources(file_path)
     input_text = input("Enter your question: ")
     answer = ask_question(input_text)
     print(answer)
