@@ -9,6 +9,7 @@ let isRecording = false;
 let recognition;
 let conversation = ""; // This variable will store the entire conversation
 let speech = new SpeechSynthesisUtterance();
+speech.lang = 'de-DE';
 const audioElement = new Audio();
 
 recordButton.addEventListener('click', function () {
@@ -28,7 +29,7 @@ function startRecording() {
         recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'en-US';
+        recognition.lang = 'de-DE';
 
         recognition.onresult = function (event) {
             let interim_transcript = '';

@@ -1,0 +1,27 @@
+import weaviate
+import os
+
+# Initialize the client
+WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
+WEAVIATE_URL = os.getenv("WEAVIATE_URL", 'default-url-if-not-set')
+
+client = weaviate.Client(
+    url=WEAVIATE_URL,
+    auth_client_secret=weaviate.AuthApiKey(WEAVIATE_API_KEY),
+    additional_headers={
+        "X-Openai-Api-Key": os.getenv("OPENAI_API_KEY"),
+    },
+)
+# Fetch all objects of a specific class (optional)
+class_name = "LangChain"  # Replace with your class name
+result = client.query.get(class_name, ["_additional { id }"]).do()
+objects = result['data']['Get'][class_name]
+
+# Extract the IDs of all objects
+object_ids = [obj['_additional']['id'] for obj in objects]
+
+# Delete each object by ID
+for object_id in object_ids:
+    client.data_object.delete(object_id)
+
+print("All objects deleted successfully.")
