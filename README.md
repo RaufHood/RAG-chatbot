@@ -64,4 +64,4 @@ This command will start the FastAPI application on `http://127.0.0.1:8000`.
 
 - To interact with the API, you can use tools like [Postman](https://www.postman.com/) or [curl](https://curl.se/).
 - For integration into our frontend, just start a live-server and you're good to go.
-- Go to http://127.0.0.1:5500/frontend/src/ on microsoft edge to test it out.
+- activate live server and go to http://127.0.0.1:5500/frontend/src/ on microsoft edge to test it out.

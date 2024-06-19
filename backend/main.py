@@ -5,6 +5,10 @@ from contextlib import asynccontextmanager
 from .chatbot.chatbot import upload_text_sources, ask_question, check_schema, check_data, check_document_count
 from dotenv import load_dotenv
 import os
+from pydantic import BaseModel, Field
+from uuid import uuid4  # Make sure uuid4 is also imported if not already
+import logging 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 load_dotenv()
 
@@ -20,6 +24,7 @@ app.add_middleware(
 
 class Question(BaseModel):
     question: str
+    session_id: str = Field(default_factory=lambda: str(uuid4()))
 
 @asynccontextmanager
 async def app_lifespan(app):
@@ -49,9 +54,11 @@ def read_root():
     return {"Chatbot_API": "True"}
 
 @app.post("/process-text/")
-def process_question(item: Question):
+async def process_question(item: Question):
     try:
-        answer = ask_question(item.question)
-        return {"answer": answer}
+        if not item.session_id:
+            item.session_id = str(uuid4())  # Ensure there's a session_id
+        answer = await ask_question(item.session_id, item.question) 
+        return {"answer": answer, "session_id": item.session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

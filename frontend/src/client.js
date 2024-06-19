@@ -1,9 +1,10 @@
 const recordButton = document.getElementById('recordButton');
 const transcription = document.getElementById('transcription');
-const responseText = document.getElementById('response_GPT'); // Element to display the full response text
+const responseText = document.getElementById('response_GPT'); 
 const sendButton = document.getElementById('sendButton');
 const PlayButton = document.getElementById('PlayButton');
 const saveConversationButton = document.getElementById('saveConversationButton');
+const newConversationButton = document.getElementById('newConversationButton');
 
 let isRecording = false;
 let recognition;
@@ -11,6 +12,23 @@ let conversation = ""; // This variable will store the entire conversation
 let speech = new SpeechSynthesisUtterance();
 speech.lang = 'de-DE';
 const audioElement = new Audio();
+
+function generateSessionID() {
+    const sessionID = 'session_' + Date.now();
+    localStorage.setItem('sessionID', sessionID);
+    return sessionID;
+}
+
+function generateUserID() {
+    if (!localStorage.getItem('userID')) {
+        const userID = 'user_' + Date.now();
+        localStorage.setItem('userID', userID);
+    }
+    return localStorage.getItem('userID');
+}
+
+// Call this function when the page loads or when needed
+const userID = generateUserID();
 
 recordButton.addEventListener('click', function () {
     if (isRecording) {
@@ -71,21 +89,23 @@ function stopRecording() {
     }
 }
 
-
 function sendTextToServer() {
+    console.log("sendTextToServer called");
     const transcriptionText = transcription.textContent;
     console.log("Transcription text being sent:", transcriptionText);
     
-    // Corrected from inputText to transcriptionText based on your context
     fetch('http://127.0.0.1:8000/process-text/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: transcriptionText })
+        body: JSON.stringify({ question: transcriptionText, session_id: sessionID })
     })
     .then(response => response.json())
     .then(data => {
         console.log('Success:', data);
         responseText.textContent = data.answer;
+        // Update session ID in case it was changed by the server
+        sessionID = data.session_id;
+        localStorage.setItem('sessionID', sessionID);
     })
     .catch(error => console.error('Error:', error));
 }
@@ -96,26 +116,20 @@ if (sendButton) {
     console.log('Send button not found');
 }
 
-function generateUserID() {
-    if (!localStorage.getItem('userID')) {
-        const userID = 'user_' + Date.now();
-        localStorage.setItem('userID', userID);
-    }
-    return localStorage.getItem('userID');
-}
-
-// Call this function when the page loads or when needed
-const userID = generateUserID();
-
-
 PlayButton.addEventListener('click', () => {
     speech.text = responseText.textContent;
     window.speechSynthesis.speak(speech);
 });
 
+// Call this function when the page loads to ensure a session ID is available
+let sessionID = localStorage.getItem('sessionID');
+if (!sessionID) {
+    sessionID = generateSessionID();
+}
 
 function sendConversationToServer() {
     const username = document.getElementById('usernameInput').value; // Assuming you have an input field for the username
+    const sessionID = document.getElementById('sessionID').value;
     const conversationText = transcription.textContent;
     const openaiResponse = responseText.textContent;
 
@@ -124,9 +138,17 @@ function sendConversationToServer() {
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({  username, conversation: conversationText, openaiResponse })
+        body: JSON.stringify({  sessionID, conversation: conversationText, openaiResponse })
     })
     .then(response => response.json())
     .then(data => console.log("Conversation saved:", data))
     .catch(error => console.error("Error saving conversation:", error));
 }
+
+newConversationButton.addEventListener('click', () => {
+    sessionID = generateSessionID();
+    transcription.textContent = '';
+    responseText.textContent = '';
+    conversation = '';
+    console.log('New conversation started with session ID:', sessionID);
+});

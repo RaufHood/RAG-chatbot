@@ -1,15 +1,13 @@
 import weaviate
-from langchain_community.vectorstores import Weaviate
 from langchain_community.retrievers import WeaviateHybridSearchRetriever
-from langchain_openai import OpenAIEmbeddings
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI #, ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate 
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain.docstore.document import Document
 import os
 from dotenv import load_dotenv
 from .utils import extract_content_chunks_from_file
+from .firestore_service import store_conversation, get_conversation_history
+import logging
 
 # Load the .env file from the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -46,7 +44,6 @@ def clear_classes():
         print(f"Deleting class: {cls['class']}")  # Added logging
         client.schema.delete_class(cls["class"])
     print("Existing classes cleared.")  # Added logging
-
 
 def create_schema():
     print("Creating new schema...")
@@ -90,7 +87,6 @@ def create_schema():
     client.schema.create(schema)
     print("Schema created successfully.")
 
-
 def upload_text_sources(file_path):
     embeddings = OpenAIEmbeddings()
     texts = extract_content_chunks_from_file(file_path)
@@ -126,38 +122,53 @@ def retrieve_documents(question, top_k=5):
 
     return retriever.get_relevant_documents(question)
 
+async def ask_question(session_id: str, question: str):
+    # Retrieve the conversation history for context
+    logging.debug("Fetching conversation history...")
+    history_context = get_conversation_history(session_id)
+    print("Session_id: ", session_id)
+    logging.debug(f"History context retrieved: {history_context}")
 
-def ask_question(question):
-    context_docs = retrieve_documents(question)
-    context = "\n".join([doc.page_content for doc in context_docs])
-    #print(f"context_docs: {context_docs}")
-    #print(f"context: {context}")
-
-    template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
-    Question: {question} 
-    Context: {context} 
-    Answer:
+    history_formatted = "\n".join([f"Q: {h['question']} A: {h['answer']}" for h in history_context])
+    
+    logging.debug("Retrieving documents from Weaviate...")
+    vector_documents = retrieve_documents(question)
+    logging.debug(f"Documents retrieved: {vector_documents}")
+    vector_context = "\n".join([doc.page_content for doc in vector_documents])
+    # Combine both contexts
+    combined_context = f"Previous Conversations:\n{history_formatted}\n\nRelevant Information:\n{vector_context}"
+    # print(f"context: {combined_context}") # for debugging
+    #logging.debug(f"Combined context: {combined_context}")
+    c_combined_context = """
+    Chemotherapy commonly causes side effects such as nausea, vomiting, hair loss, fatigue, and increased risk of infection. Other possible side effects include anemia, bleeding problems, mouth sores, and changes in appetite. The severity and type of side effects can vary depending on the specific chemotherapy drugs used and the patient's overall health.
     """
 
-    prompt = ChatPromptTemplate.from_template(template)
+    # You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
+    prompt_text = f"""Sie sind ein Assistent für die Beantwortung von Fragen. Beantworten Sie die Frage mit Hilfe der folgenden Kontextinformationen. Wenn Sie die Antwort nicht wissen, sagen Sie einfach, dass Sie sie nicht wissen. Verwenden Sie maximal drei Sätze und fassen Sie die Antwort kurz zusammen.
+    Frage: {question} 
+    Kontext: {combined_context} 
+    Antwort:
+    """
+    
+    #logging.debug("Preparing prompt...")
+    prompt = ChatPromptTemplate.from_template(prompt_text)
     llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
     parser = StrOutputParser()
 
-    inputs = {"context": context, "question": question}
+    inputs = {"context": combined_context, "question": question}
     prompt_output = prompt.invoke(inputs)
     llm_output = llm.invoke(prompt_output) 
+    #logging.debug(f"LLM output: {llm_output}")
+
     answer = parser.invoke(llm_output)
+    logging.debug(f"Answer received: {answer}")
+
+    # Store the new conversation entry
+    #logging.debug("Storing conversation...")
+    store_conversation(session_id, question, answer)
+    logging.debug("Conversation stored successfully.")
     
-
-    #    rag_chain = (
-    #        inputs
-    #        | prompt
-    #        | llm
-    #       | StrOutputParser()
-    #    )
-    #    answer = rag_chain.invoke(inputs)
     return answer
-
 
 
 def check_schema():
@@ -173,9 +184,9 @@ def check_document_count():
     print("COUNT:", count)
 
 if __name__ == "__main__":
-    check_schema()        # Verify the schema
-    check_data()          # Verify data in LangChain class
-    check_document_count()# Check document count
+    #check_schema()        # Verify the schema
+    #check_data()          # Verify data in LangChain class
+    #check_document_count()# Check document count
     # Re-upload documents
     file_path = "backend/chatbot/paca.html"
     retriever = upload_text_sources(file_path)
