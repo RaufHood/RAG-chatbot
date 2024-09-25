@@ -24,6 +24,7 @@ app.add_middleware(
 
 class Question(BaseModel):
     question: str
+    user_id: str
     session_id: str = Field(default_factory=lambda: str(uuid4()))
 
 @asynccontextmanager
@@ -58,7 +59,7 @@ async def process_question(item: Question):
     try:
         if not item.session_id:
             item.session_id = str(uuid4())  # Ensure there's a session_id
-        answer = await ask_question(item.session_id, item.question) 
+        answer = await ask_question(item.user_id, item.session_id, item.question, answer) 
         return {"answer": answer, "session_id": item.session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
